@@ -1,0 +1,7 @@
+{
+  "name": "Gemini Live Voice Chat",
+  "description": "A real-time conversational AI agent powered by Gemini 2.5 Live API with continuous voice mode and customizable personalities.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
