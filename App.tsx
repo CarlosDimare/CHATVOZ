@@ -66,6 +66,7 @@ const App: React.FC = () => {
           messages={messages}
           isOpen={true}
           onClose={() => setIsTranscriptOpen(false)}
+          variant="overlay"
         />
       </div>
 
@@ -175,7 +176,7 @@ const App: React.FC = () => {
           {mode === 'text' && (
             <div className="w-full flex flex-col h-[60vh]">
               <div className="flex-1 overflow-hidden border border-zinc-800 bg-black/50 mb-4 relative">
-                <Transcript messages={messages} isOpen={true} onClose={() => { }} />
+                <Transcript messages={messages} isOpen={true} onClose={() => { }} variant="embedded" />
               </div>
 
               <div className="flex gap-2 items-center">
