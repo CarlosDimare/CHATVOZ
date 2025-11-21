@@ -10,15 +10,15 @@ const DEFAULT_CONFIG: Config = {
   systemInstruction: PRESET_PERSONALITIES[0].instruction,
   voiceName: 'Kore',
   useSearch: true,
-  service: 'gemini',
 };
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [textInput, setTextInput] = useState('');
 
-  const { connect, disconnect, connectionState, volume, error, messages } = useLiveApi(config);
+  const { connect, disconnect, connectionState, volume, error, messages, sendText } = useLiveApi(config);
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
@@ -87,14 +87,14 @@ const App: React.FC = () => {
 
           {/* Status Indicator */}
           <div className={`mb-8 lg:mb-12 px-6 py-2 text-xs font-bold tracking-[0.2em] uppercase transition-colors border ${isConnected ? 'bg-red-900/10 text-red-500 border-red-900/30' :
-              isConnecting ? 'bg-zinc-900 text-zinc-400 border-zinc-800' :
-                error ? 'bg-red-900/20 text-red-500 border-red-900' :
-                  'bg-black text-zinc-600 border-zinc-900'
+            isConnecting ? 'bg-zinc-900 text-zinc-400 border-zinc-800' :
+              error ? 'bg-red-900/20 text-red-500 border-red-900' :
+                'bg-black text-zinc-600 border-zinc-900'
             }`}>
             <div className="flex items-center gap-3">
               <div className={`w-2 h-2 ${isConnected ? 'bg-red-600 animate-pulse' :
-                  isConnecting ? 'bg-zinc-400 animate-bounce' :
-                    error ? 'bg-red-600' : 'bg-zinc-700'
+                isConnecting ? 'bg-zinc-400 animate-bounce' :
+                  error ? 'bg-red-600' : 'bg-zinc-700'
                 }`} />
               {error ? 'ERROR DE CONEXIÓN' :
                 connectionState === 'connected' ? 'EN LÍNEA' :
@@ -118,26 +118,58 @@ const App: React.FC = () => {
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col items-center gap-8">
-            <button
-              onClick={toggleConnection}
-              className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 border-2 ${isConnected
+          <div className="flex flex-col items-center gap-8 w-full">
+            <div className="flex flex-col items-center gap-4">
+              <button
+                onClick={toggleConnection}
+                className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 border-2 ${isConnected
                   ? 'bg-red-600 border-red-600 hover:bg-red-700 shadow-[0_0_40px_rgba(220,38,38,0.3)]'
                   : 'bg-black border-zinc-700 hover:border-white shadow-[0_0_20px_rgba(255,255,255,0.05)]'
-                }`}
-              style={{ borderRadius: '0' }} // Square button for brutalist/minimalist look
-            >
-              {/* Ripple Effect when connecting */}
-              {isConnecting && (
-                <span className="absolute inset-0 border border-white/30 animate-ping"></span>
-              )}
+                  }`}
+                style={{ borderRadius: '0' }} // Square button for brutalist/minimalist look
+              >
+                {/* Ripple Effect when connecting */}
+                {isConnecting && (
+                  <span className="absolute inset-0 border border-white/30 animate-ping"></span>
+                )}
 
-              <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-white'}`}></i>
-            </button>
+                <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-white'}`}></i>
+              </button>
 
-            <p className="text-zinc-600 text-xs font-bold tracking-[0.2em] uppercase">
-              {isConnected ? "FINALIZAR TRANSMISIÓN" : "INICIAR TRANSMISIÓN"}
-            </p>
+              <p className="text-zinc-600 text-xs font-bold tracking-[0.2em] uppercase">
+                {isConnected ? "FINALIZAR TRANSMISIÓN" : "INICIAR TRANSMISIÓN"}
+              </p>
+            </div>
+
+            {/* Text Input */}
+            <div className="w-full max-w-md mt-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (textInput.trim() && isConnected) {
+                    sendText(textInput);
+                    setTextInput('');
+                  }
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder={isConnected ? "Escribe un mensaje..." : "Conecta para chatear..."}
+                  disabled={!isConnected}
+                  className="flex-1 bg-zinc-900/50 border border-zinc-800 p-3 text-white text-sm outline-none focus:border-red-600 placeholder-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="submit"
+                  disabled={!isConnected || !textInput.trim()}
+                  className="bg-zinc-900 hover:bg-red-600 text-white px-4 transition-colors disabled:opacity-50 disabled:hover:bg-zinc-900 border border-zinc-800"
+                >
+                  <i className="ph ph-paper-plane-right"></i>
+                </button>
+              </form>
+            </div>
           </div>
         </main>
       </div>

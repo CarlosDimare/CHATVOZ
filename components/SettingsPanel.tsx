@@ -45,6 +45,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
     setConfig({ ...config, systemInstruction: newPersonality.instruction });
   };
 
+  const handleDeleteCharacter = (index: number) => {
+    const updated = customPersonalities.filter((_, i) => i !== index);
+    saveCustomPersonalities(updated);
+    // If the deleted character was selected, revert to default
+    if (config.systemInstruction === customPersonalities[index].instruction) {
+      setConfig({ ...config, systemInstruction: PRESET_PERSONALITIES[0].instruction });
+    }
+  };
+
   if (!isOpen) return null;
 
   const allPersonalities = [...PRESET_PERSONALITIES, ...customPersonalities];
@@ -59,38 +68,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
           <button onClick={onClose} className="text-zinc-500 hover:text-red-500 transition-colors">
             <i className="ph ph-x text-2xl"></i>
           </button>
-        </div>
-
-        {/* Service Selection */}
-        <div className="mb-8">
-          <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ SERVICIO DE IA ]</label>
-          <div className="grid grid-cols-1 gap-2">
-            <button
-              onClick={() => setConfig({ ...config, service: 'gemini' })}
-              disabled={disabled}
-              className={`px-4 py-3 text-xs font-bold uppercase transition-all border flex justify-between items-center ${config.service === 'gemini'
-                  ? 'bg-red-600 text-black border-red-600'
-                  : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span>GEMINI LIVE (API KEY)</span>
-              {config.service === 'gemini' && <i className="ph ph-check-circle text-lg"></i>}
-            </button>
-            <button
-              onClick={() => setConfig({ ...config, service: 'pollinations' })}
-              disabled={disabled}
-              className={`px-4 py-3 text-xs font-bold uppercase transition-all border flex justify-between items-center ${config.service === 'pollinations'
-                  ? 'bg-red-600 text-black border-red-600'
-                  : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span>POLLINATIONS (GRATIS)</span>
-              {config.service === 'pollinations' && <i className="ph ph-check-circle text-lg"></i>}
-            </button>
-          </div>
-          <p className="text-[10px] text-zinc-600 mt-2 uppercase">
-            * Pollinations usa Web Speech API y no requiere API Key.
-          </p>
         </div>
 
         {/* Tools */}
@@ -115,34 +92,27 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
               />
             </button>
           </div>
-          {config.service === 'pollinations' && config.useSearch && (
-            <p className="text-[10px] text-zinc-600 mt-2 uppercase">
-              * Usando Búsqueda Híbrida (DuckDuckGo + Wikipedia).
-            </p>
-          )}
         </div>
 
         {/* Voice Selection */}
-        {config.service === 'gemini' && (
-          <div className="mb-8">
-            <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ VOZ GEMINI ]</label>
-            <div className="grid grid-cols-3 gap-2">
-              {VOICE_NAMES.map(voice => (
-                <button
-                  key={voice}
-                  onClick={() => setConfig({ ...config, voiceName: voice })}
-                  disabled={disabled}
-                  className={`px-2 py-2 text-xs font-bold uppercase transition-all border ${config.voiceName === voice
-                      ? 'bg-red-600 text-black border-red-600'
-                      : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
-                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {voice}
-                </button>
-              ))}
-            </div>
+        <div className="mb-8">
+          <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ VOZ GEMINI ]</label>
+          <div className="grid grid-cols-3 gap-2">
+            {VOICE_NAMES.map(voice => (
+              <button
+                key={voice}
+                onClick={() => setConfig({ ...config, voiceName: voice })}
+                disabled={disabled}
+                className={`px-2 py-2 text-xs font-bold uppercase transition-all border ${config.voiceName === voice
+                    ? 'bg-red-600 text-black border-red-600'
+                    : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
+                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {voice}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
         {/* Personality Presets */}
         <div className="mb-8">
@@ -167,9 +137,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
           </div>
 
           <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-            {allPersonalities.map((p, idx) => (
+            {/* Preset Personalities */}
+            {PRESET_PERSONALITIES.map((p, idx) => (
               <button
-                key={idx}
+                key={`preset-${idx}`}
                 onClick={() => setConfig({ ...config, systemInstruction: p.instruction })}
                 disabled={disabled}
                 className={`w-full text-left px-4 py-3 text-sm transition-all border-l-2 ${config.systemInstruction === p.instruction
@@ -179,6 +150,29 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
               >
                 <div className="font-bold uppercase tracking-wider">{p.name}</div>
               </button>
+            ))}
+
+            {/* Custom Personalities with Delete Button */}
+            {customPersonalities.map((p, idx) => (
+              <div key={`custom-${idx}`} className="flex items-stretch">
+                <button
+                  onClick={() => setConfig({ ...config, systemInstruction: p.instruction })}
+                  disabled={disabled}
+                  className={`flex-1 text-left px-4 py-3 text-sm transition-all border-l-2 ${config.systemInstruction === p.instruction
+                      ? 'bg-zinc-900 border-red-600 text-white'
+                      : 'bg-black border-zinc-800 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="font-bold uppercase tracking-wider">{p.name}</div>
+                </button>
+                <button
+                  onClick={() => handleDeleteCharacter(idx)}
+                  disabled={disabled}
+                  className="bg-zinc-900 hover:bg-red-900 text-zinc-500 hover:text-white px-3 border-l border-zinc-800 transition-colors"
+                >
+                  <i className="ph ph-trash"></i>
+                </button>
+              </div>
             ))}
           </div>
         </div>

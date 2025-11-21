@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { createPcmBlob, decodeAudioData, base64ToUint8Array } from '../utils/audio-utils';
-import { performHybridSearch } from '../utils/search-utils';
 import { Config, ConnectionState, TranscriptItem } from '../types';
 
 const INPUT_SAMPLE_RATE = 16000;
@@ -13,24 +12,19 @@ export function useLiveApi(config: Config) {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<TranscriptItem[]>([]);
 
-  // Audio Context Refs (Gemini)
+  // Audio Context Refs
   const inputContextRef = useRef<AudioContext | null>(null);
   const outputContextRef = useRef<AudioContext | null>(null);
   const inputSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Playback State (Gemini)
+  // Playback State
   const nextStartTimeRef = useRef<number>(0);
   const audioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
-  // API Session (Gemini)
+  // API Session
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
-
-  // Pollinations / Web Speech Refs
-  const recognitionRef = useRef<any>(null);
-  const synthesisRef = useRef<SpeechSynthesis>(window.speechSynthesis);
-  const isPollinationsActiveRef = useRef(false);
 
   const currentConfigRef = useRef<Config>(config);
 
@@ -42,12 +36,10 @@ export function useLiveApi(config: Config) {
   const disconnect = useCallback(async () => {
     console.log('Disconnecting...');
 
-    // Common Cleanup
     setConnectionState('disconnected');
     setVolume(0);
     setError(null);
 
-    // Gemini Cleanup
     if (inputContextRef.current) {
       await inputContextRef.current.close();
       inputContextRef.current = null;
@@ -65,18 +57,9 @@ export function useLiveApi(config: Config) {
     });
     audioSourcesRef.current.clear();
     sessionPromiseRef.current = null;
-
-    // Pollinations Cleanup
-    isPollinationsActiveRef.current = false;
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-    synthesisRef.current.cancel();
-
   }, []);
 
-  const connectGemini = async () => {
+  const connect = async () => {
     if (!process.env.API_KEY) {
       setError("Clave API no encontrada en las variables de entorno.");
       return;
@@ -252,139 +235,20 @@ export function useLiveApi(config: Config) {
     }
   };
 
-  const connectPollinations = async () => {
-    try {
-      setConnectionState('connecting');
-      setError(null);
-      setMessages([]);
-      isPollinationsActiveRef.current = true;
+  const sendText = async (text: string) => {
+    if (sessionPromiseRef.current) {
+      const session = await sessionPromiseRef.current;
+      session.send({ parts: [{ text }] });
 
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        throw new Error("Tu navegador no soporta reconocimiento de voz.");
-      }
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'es-ES';
-
-      recognition.onstart = () => {
-        console.log('Recognition started');
-        setConnectionState('connected');
-      };
-
-      recognition.onspeechstart = () => {
-        if (synthesisRef.current.speaking) {
-          synthesisRef.current.cancel();
-        }
-      };
-
-      recognition.onresult = async (event: any) => {
-        // Interruption Logic: If user speaks, cancel synthesis (backup)
-        if (synthesisRef.current.speaking) {
-          synthesisRef.current.cancel();
-        }
-
-        // Fake volume visualization
-        setVolume(Math.random() * 0.5 + 0.2);
-
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          // Add user message
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
-            role: 'user',
-            text: finalTranscript,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          }]);
-
-          // Call Pollinations
-          try {
-            let searchContext = "";
-            if (currentConfigRef.current.useSearch) {
-              searchContext = await performHybridSearch(finalTranscript);
-            }
-
-            const prompt = encodeURIComponent(`${currentConfigRef.current.systemInstruction}\n${searchContext}\nUsuario: ${finalTranscript}\nAsistente:`);
-            // Use default model (openai/gpt-4o-mini equivalent) which is faster and more reliable than searchgpt
-            const response = await fetch(`https://text.pollinations.ai/${prompt}`);
-            const text = await response.text();
-
-            // Add model message
-            setMessages(prev => [...prev, {
-              id: Date.now().toString(),
-              role: 'model',
-              text: text,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }]);
-
-            // Speak response
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            // Try to match voice roughly if possible, or use default
-            synthesisRef.current.speak(utterance);
-
-            // Visualize while speaking
-            const speakInterval = setInterval(() => {
-              if (synthesisRef.current.speaking) {
-                setVolume(Math.random() * 0.5 + 0.2);
-              } else {
-                setVolume(0);
-                clearInterval(speakInterval);
-              }
-            }, 100);
-
-          } catch (e) {
-            console.error("Pollinations error", e);
-          }
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Recognition error", event.error);
-        if (event.error === 'not-allowed') {
-          setError("Permiso de micrófono denegado.");
-          disconnect();
-        }
-      };
-
-      recognition.onend = () => {
-        if (isPollinationsActiveRef.current) {
-          recognition.start(); // Restart if it stops unexpectedly
-        } else {
-          setConnectionState('disconnected');
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-
-    } catch (err) {
-      console.error("Pollinations setup failed", err);
-      setConnectionState('error');
-      setError(err instanceof Error ? err.message : "Fallo al configurar Pollinations");
-      disconnect();
+      // Optimistically add user message
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'user',
+        text: text,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
     }
   };
-
-  const connect = useCallback(() => {
-    if (currentConfigRef.current.service === 'pollinations') {
-      connectPollinations();
-    } else {
-      connectGemini();
-    }
-  }, []);
 
   return {
     connect,
@@ -392,6 +256,7 @@ export function useLiveApi(config: Config) {
     connectionState,
     volume,
     error,
-    messages
+    messages,
+    sendText
   };
 }
