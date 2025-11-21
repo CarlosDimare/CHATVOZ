@@ -17,6 +17,7 @@ type Mode = 'voice' | 'text';
 const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('voice');
   const [textInput, setTextInput] = useState('');
 
@@ -43,6 +44,13 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', setVh);
   }, []);
 
+  // Auto-hide sidebar when switching to text mode
+  useEffect(() => {
+    if (mode === 'text') {
+      setIsTranscriptOpen(false);
+    }
+  }, [mode]);
+
   return (
     <div className="h-screen w-full bg-black flex relative overflow-hidden font-mono selection:bg-red-900 selection:text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       {/* Background Ambient Effects - Minimalist Red Glow */}
@@ -51,27 +59,49 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-zinc-900/10 rounded-full blur-[150px]"></div>
       </div>
 
+      {/* Sidebar / Transcript Drawer */}
+      {/* Removed lg:static and lg:translate-x-0 to make it collapsible on desktop too */}
+      <div className={`fixed inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 w-full lg:w-96 shrink-0 border-r border-zinc-900 bg-black/95 backdrop-blur-sm`}>
+        <Transcript
+          messages={messages}
+          isOpen={true}
+          onClose={() => setIsTranscriptOpen(false)}
+        />
+      </div>
+
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full relative z-10">
+      <div className="flex-1 flex flex-col h-full relative z-10 transition-all duration-300">
 
         {/* Top Navigation */}
         <nav className="p-4 lg:p-6 flex justify-between items-center border-b border-zinc-900 lg:border-none">
-          {/* Mode Toggle */}
-          <div className="flex bg-zinc-900/50 p-1 border border-zinc-800">
+
+          {/* Left Controls Group */}
+          <div className="flex items-center gap-4">
+            {/* Transcript Toggle - Visible on all screens now */}
             <button
-              onClick={() => setMode('voice')}
-              className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'voice' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+              onClick={() => setIsTranscriptOpen(!isTranscriptOpen)}
+              className={`p-3 transition-all border border-zinc-800 ${isTranscriptOpen ? 'bg-red-900/20 text-red-500 border-red-900' : 'text-zinc-500 hover:text-red-500 hover:bg-zinc-900'}`}
             >
-              Voz
+              <i className="ph ph-chat-text text-2xl"></i>
             </button>
-            <button
-              onClick={() => setMode('text')}
-              className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'text' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-            >
-              Texto
-            </button>
+
+            {/* Mode Toggle */}
+            <div className="flex bg-zinc-900/50 p-1 border border-zinc-800">
+              <button
+                onClick={() => setMode('voice')}
+                className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'voice' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+              >
+                Voz
+              </button>
+              <button
+                onClick={() => setMode('text')}
+                className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'text' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+              >
+                Texto
+              </button>
+            </div>
           </div>
 
           <button
