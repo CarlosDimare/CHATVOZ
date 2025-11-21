@@ -26,21 +26,21 @@ const Visualizer: React.FC<VisualizerProps> = ({ volume, isActive }) => {
 
       // Base circle/glow
       const baseRadius = 50 + (volume * 30);
-      
+
       // Dynamic Gradient
-      const gradient = ctx.createRadialGradient(width/2, centerY, baseRadius * 0.5, width/2, centerY, baseRadius * 2);
+      const gradient = ctx.createRadialGradient(width / 2, centerY, baseRadius * 0.5, width / 2, centerY, baseRadius * 2);
       if (isActive) {
-        gradient.addColorStop(0, 'rgba(96, 165, 250, 0.9)'); // Blue-400
-        gradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.4)'); // Blue-500
-        gradient.addColorStop(1, 'rgba(29, 78, 216, 0)'); // Blue-800 transparent
+        gradient.addColorStop(0, 'rgba(220, 38, 38, 0.9)'); // Red-600
+        gradient.addColorStop(0.5, 'rgba(185, 28, 28, 0.4)'); // Red-700
+        gradient.addColorStop(1, 'rgba(153, 27, 27, 0)'); // Red-800 transparent
       } else {
-        gradient.addColorStop(0, 'rgba(148, 163, 184, 0.5)'); // Slate-400
-        gradient.addColorStop(1, 'rgba(71, 85, 105, 0)'); // Slate-600
+        gradient.addColorStop(0, 'rgba(39, 39, 42, 0.5)'); // Zinc-800
+        gradient.addColorStop(1, 'rgba(24, 24, 27, 0)'); // Zinc-900
       }
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(width/2, centerY, baseRadius * 1.5, 0, Math.PI * 2);
+      ctx.arc(width / 2, centerY, baseRadius * 1.5, 0, Math.PI * 2);
       ctx.fill();
 
       // Waveform
@@ -71,10 +71,10 @@ const Visualizer: React.FC<VisualizerProps> = ({ volume, isActive }) => {
   }, [volume, isActive]);
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      width={400} 
-      height={300} 
+    <canvas
+      ref={canvasRef}
+      width={400}
+      height={300}
       className="w-full h-64 md:h-80"
     />
   );
