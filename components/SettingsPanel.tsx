@@ -117,7 +117,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
           </div>
           {config.service === 'pollinations' && config.useSearch && (
             <p className="text-[10px] text-zinc-600 mt-2 uppercase">
-              * Usando modelo SearchGPT (Más lento, pero con acceso a internet).
+              * Usando Búsqueda Híbrida (DuckDuckGo + Wikipedia).
             </p>
           )}
         </div>

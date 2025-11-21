@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { createPcmBlob, decodeAudioData, base64ToUint8Array } from '../utils/audio-utils';
+import { performHybridSearch } from '../utils/search-utils';
 import { Config, ConnectionState, TranscriptItem } from '../types';
 
 const INPUT_SAMPLE_RATE = 16000;
@@ -310,9 +311,14 @@ export function useLiveApi(config: Config) {
 
           // Call Pollinations
           try {
-            const prompt = encodeURIComponent(`${currentConfigRef.current.systemInstruction}\n\nUsuario: ${finalTranscript}\nAsistente:`);
-            const modelParam = currentConfigRef.current.useSearch ? '?model=searchgpt' : '';
-            const response = await fetch(`https://text.pollinations.ai/${prompt}${modelParam}`);
+            let searchContext = "";
+            if (currentConfigRef.current.useSearch) {
+              searchContext = await performHybridSearch(finalTranscript);
+            }
+
+            const prompt = encodeURIComponent(`${currentConfigRef.current.systemInstruction}\n${searchContext}\nUsuario: ${finalTranscript}\nAsistente:`);
+            // Use default model (openai/gpt-4o-mini equivalent) which is faster and more reliable than searchgpt
+            const response = await fetch(`https://text.pollinations.ai/${prompt}`);
             const text = await response.text();
 
             // Add model message
