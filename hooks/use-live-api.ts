@@ -6,7 +6,7 @@ import { Config, ConnectionState, TranscriptItem } from '../types';
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-export function useLiveApi(config: Config) {
+export function useLiveApi(config: Config, mode: 'voice' | 'text') {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +43,16 @@ export function useLiveApi(config: Config) {
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
 
   const currentConfigRef = useRef<Config>(config);
+  const currentModeRef = useRef<'voice' | 'text'>(mode);
 
-  // Update config ref when prop changes
+  // Update refs when props change
   useEffect(() => {
     currentConfigRef.current = config;
   }, [config]);
+
+  useEffect(() => {
+    currentModeRef.current = mode;
+  }, [mode]);
 
   const disconnect = useCallback(async () => {
     console.log('Disconnecting...');
@@ -84,14 +89,6 @@ export function useLiveApi(config: Config) {
     try {
       setConnectionState('connecting');
       setError(null);
-      // Do NOT clear messages here to maintain history
-      // setMessages([]); 
-
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      inputContextRef.current = new AudioContextClass({ sampleRate: INPUT_SAMPLE_RATE });
-      outputContextRef.current = new AudioContextClass({ sampleRate: OUTPUT_SAMPLE_RATE });
-
-      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const tools = currentConfigRef.current.useSearch ? [{ googleSearch: {} }] : [];
@@ -100,10 +97,17 @@ export function useLiveApi(config: Config) {
       const historyContext = messagesRef.current.slice(-20).map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.text}`).join('\n');
       const fullSystemInstruction = `${currentConfigRef.current.systemInstruction}\n\n[CONTEXTO PREVIO (IMPORTANTE: Usa esto para mantener la coherencia de la conversación)]\n${historyContext}`;
 
+      // Determine modalities based on mode
+      // Note: Even in text mode, we might receive audio if we don't explicitly disable it, 
+      // but we will choose not to play it.
+      // Ideally we would ask for TEXT only, but the Live API is primarily audio-centric.
+      // We will stick to AUDIO modality for consistency but ignore it in client.
+      const responseModalities = [Modality.AUDIO];
+
       sessionPromiseRef.current = ai.live.connect({
         model: currentConfigRef.current.model,
         config: {
-          responseModalities: [Modality.AUDIO],
+          responseModalities: responseModalities,
           systemInstruction: fullSystemInstruction,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: currentConfigRef.current.voiceName } },
@@ -113,62 +117,80 @@ export function useLiveApi(config: Config) {
           tools: tools,
         },
         callbacks: {
-          onopen: () => {
+          onopen: async () => {
             console.log('Live session opened');
             setConnectionState('connected');
 
-            if (!inputContextRef.current || !streamRef.current) return;
+            // Only initialize Audio Input in VOICE mode
+            if (currentModeRef.current === 'voice') {
+              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+              inputContextRef.current = new AudioContextClass({ sampleRate: INPUT_SAMPLE_RATE });
+              outputContextRef.current = new AudioContextClass({ sampleRate: OUTPUT_SAMPLE_RATE });
 
-            const source = inputContextRef.current.createMediaStreamSource(streamRef.current);
-            const processor = inputContextRef.current.createScriptProcessor(4096, 1, 1);
+              streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            processor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
+              if (!inputContextRef.current || !streamRef.current) return;
 
-              // Calculate volume for visualizer
-              let sum = 0;
-              for (let i = 0; i < inputData.length; i++) {
-                sum += inputData[i] * inputData[i];
-              }
-              const rms = Math.sqrt(sum / inputData.length);
-              setVolume(Math.min(1, rms * 5));
+              const source = inputContextRef.current.createMediaStreamSource(streamRef.current);
+              const processor = inputContextRef.current.createScriptProcessor(4096, 1, 1);
 
-              const pcmBlob = createPcmBlob(inputData, INPUT_SAMPLE_RATE);
-              sessionPromiseRef.current?.then(session => {
-                session.sendRealtimeInput({ media: pcmBlob });
-              });
-            };
+              processor.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
 
-            source.connect(processor);
-            processor.connect(inputContextRef.current.destination);
+                // Calculate volume for visualizer
+                let sum = 0;
+                for (let i = 0; i < inputData.length; i++) {
+                  sum += inputData[i] * inputData[i];
+                }
+                const rms = Math.sqrt(sum / inputData.length);
+                setVolume(Math.min(1, rms * 5));
 
-            inputSourceRef.current = source;
-            processorRef.current = processor;
+                const pcmBlob = createPcmBlob(inputData, INPUT_SAMPLE_RATE);
+                sessionPromiseRef.current?.then(session => {
+                  session.sendRealtimeInput({ media: pcmBlob });
+                });
+              };
+
+              source.connect(processor);
+              processor.connect(inputContextRef.current.destination);
+
+              inputSourceRef.current = source;
+              processorRef.current = processor;
+            }
           },
           onmessage: async (message: LiveServerMessage) => {
             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
 
-            if (base64Audio && outputContextRef.current) {
-              const ctx = outputContextRef.current;
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+            // Only play audio if in VOICE mode
+            if (base64Audio && currentModeRef.current === 'voice') {
+              // Ensure output context exists (it might not if we started in text mode and switched, though we should disconnect on switch)
+              if (!outputContextRef.current) {
+                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                outputContextRef.current = new AudioContextClass({ sampleRate: OUTPUT_SAMPLE_RATE });
+              }
 
-              const audioBuffer = await decodeAudioData(
-                base64ToUint8Array(base64Audio),
-                ctx,
-                OUTPUT_SAMPLE_RATE
-              );
+              if (outputContextRef.current) {
+                const ctx = outputContextRef.current;
+                nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
 
-              const source = ctx.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(ctx.destination);
+                const audioBuffer = await decodeAudioData(
+                  base64ToUint8Array(base64Audio),
+                  ctx,
+                  OUTPUT_SAMPLE_RATE
+                );
 
-              source.onended = () => {
-                audioSourcesRef.current.delete(source);
-              };
+                const source = ctx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(ctx.destination);
 
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += audioBuffer.duration;
-              audioSourcesRef.current.add(source);
+                source.onended = () => {
+                  audioSourcesRef.current.delete(source);
+                };
+
+                source.start(nextStartTimeRef.current);
+                nextStartTimeRef.current += audioBuffer.duration;
+                audioSourcesRef.current.add(source);
+              }
             }
 
             if (message.serverContent?.interrupted) {

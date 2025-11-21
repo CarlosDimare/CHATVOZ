@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<Mode>('voice');
   const [textInput, setTextInput] = useState('');
 
-  const { connect, disconnect, connectionState, volume, error, messages, sendText } = useLiveApi(config);
+  const { connect, disconnect, connectionState, volume, error, messages, sendText } = useLiveApi(config, mode);
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
@@ -50,6 +50,13 @@ const App: React.FC = () => {
       setIsTranscriptOpen(false);
     }
   }, [mode]);
+
+  const handleModeSwitch = (newMode: Mode) => {
+    if (mode !== newMode) {
+      disconnect();
+      setMode(newMode);
+    }
+  };
 
   return (
     <div className="h-screen w-full bg-black flex relative overflow-hidden font-mono selection:bg-red-900 selection:text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
@@ -89,14 +96,14 @@ const App: React.FC = () => {
             {/* Mode Toggle */}
             <div className="flex bg-zinc-900/50 p-1 border border-zinc-800">
               <button
-                onClick={() => setMode('voice')}
+                onClick={() => handleModeSwitch('voice')}
                 className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'voice' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
               >
                 Voz
               </button>
               <button
-                onClick={() => setMode('text')}
+                onClick={() => handleModeSwitch('text')}
                 className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'text' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
               >
