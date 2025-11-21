@@ -273,8 +273,14 @@ export function useLiveApi(config: Config) {
         setConnectionState('connected');
       };
 
+      recognition.onspeechstart = () => {
+        if (synthesisRef.current.speaking) {
+          synthesisRef.current.cancel();
+        }
+      };
+
       recognition.onresult = async (event: any) => {
-        // Interruption Logic: If user speaks, cancel synthesis
+        // Interruption Logic: If user speaks, cancel synthesis (backup)
         if (synthesisRef.current.speaking) {
           synthesisRef.current.cancel();
         }
@@ -305,7 +311,8 @@ export function useLiveApi(config: Config) {
           // Call Pollinations
           try {
             const prompt = encodeURIComponent(`${currentConfigRef.current.systemInstruction}\n\nUsuario: ${finalTranscript}\nAsistente:`);
-            const response = await fetch(`https://text.pollinations.ai/${prompt}`);
+            const modelParam = currentConfigRef.current.useSearch ? '?model=searchgpt' : '';
+            const response = await fetch(`https://text.pollinations.ai/${prompt}${modelParam}`);
             const text = await response.text();
 
             // Add model message

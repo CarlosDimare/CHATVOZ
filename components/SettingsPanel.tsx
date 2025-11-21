@@ -105,9 +105,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
             </div>
             <button
               onClick={() => setConfig({ ...config, useSearch: !config.useSearch })}
-              disabled={disabled || config.service === 'pollinations'}
+              disabled={disabled}
               className={`relative inline-flex h-5 w-10 items-center transition-colors rounded-none ${config.useSearch ? 'bg-red-600' : 'bg-zinc-800'
-                } ${disabled || config.service === 'pollinations' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <span
                 className={`inline-block h-3 w-3 transform bg-black transition-transform ${config.useSearch ? 'translate-x-6' : 'translate-x-1'
@@ -115,9 +115,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
               />
             </button>
           </div>
-          {config.service === 'pollinations' && (
+          {config.service === 'pollinations' && config.useSearch && (
             <p className="text-[10px] text-zinc-600 mt-2 uppercase">
-              * Búsqueda no disponible en modo Pollinations.
+              * Usando modelo SearchGPT (Más lento, pero con acceso a internet).
             </p>
           )}
         </div>
