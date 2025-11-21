@@ -61,6 +61,38 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
           </button>
         </div>
 
+        {/* Service Selection */}
+        <div className="mb-8">
+          <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ SERVICIO DE IA ]</label>
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              onClick={() => setConfig({ ...config, service: 'gemini' })}
+              disabled={disabled}
+              className={`px-4 py-3 text-xs font-bold uppercase transition-all border flex justify-between items-center ${config.service === 'gemini'
+                  ? 'bg-red-600 text-black border-red-600'
+                  : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span>GEMINI LIVE (API KEY)</span>
+              {config.service === 'gemini' && <i className="ph ph-check-circle text-lg"></i>}
+            </button>
+            <button
+              onClick={() => setConfig({ ...config, service: 'pollinations' })}
+              disabled={disabled}
+              className={`px-4 py-3 text-xs font-bold uppercase transition-all border flex justify-between items-center ${config.service === 'pollinations'
+                  ? 'bg-red-600 text-black border-red-600'
+                  : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span>POLLINATIONS (GRATIS)</span>
+              {config.service === 'pollinations' && <i className="ph ph-check-circle text-lg"></i>}
+            </button>
+          </div>
+          <p className="text-[10px] text-zinc-600 mt-2 uppercase">
+            * Pollinations usa Web Speech API y no requiere API Key.
+          </p>
+        </div>
+
         {/* Tools */}
         <div className="mb-8">
           <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ HERRAMIENTAS ]</label>
@@ -73,9 +105,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
             </div>
             <button
               onClick={() => setConfig({ ...config, useSearch: !config.useSearch })}
-              disabled={disabled}
+              disabled={disabled || config.service === 'pollinations'}
               className={`relative inline-flex h-5 w-10 items-center transition-colors rounded-none ${config.useSearch ? 'bg-red-600' : 'bg-zinc-800'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                } ${disabled || config.service === 'pollinations' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <span
                 className={`inline-block h-3 w-3 transform bg-black transition-transform ${config.useSearch ? 'translate-x-6' : 'translate-x-1'
@@ -83,27 +115,34 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
               />
             </button>
           </div>
+          {config.service === 'pollinations' && (
+            <p className="text-[10px] text-zinc-600 mt-2 uppercase">
+              * Búsqueda no disponible en modo Pollinations.
+            </p>
+          )}
         </div>
 
         {/* Voice Selection */}
-        <div className="mb-8">
-          <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ VOZ ]</label>
-          <div className="grid grid-cols-3 gap-2">
-            {VOICE_NAMES.map(voice => (
-              <button
-                key={voice}
-                onClick={() => setConfig({ ...config, voiceName: voice })}
-                disabled={disabled}
-                className={`px-2 py-2 text-xs font-bold uppercase transition-all border ${config.voiceName === voice
-                    ? 'bg-red-600 text-black border-red-600'
-                    : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {voice}
-              </button>
-            ))}
+        {config.service === 'gemini' && (
+          <div className="mb-8">
+            <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ VOZ GEMINI ]</label>
+            <div className="grid grid-cols-3 gap-2">
+              {VOICE_NAMES.map(voice => (
+                <button
+                  key={voice}
+                  onClick={() => setConfig({ ...config, voiceName: voice })}
+                  disabled={disabled}
+                  className={`px-2 py-2 text-xs font-bold uppercase transition-all border ${config.voiceName === voice
+                      ? 'bg-red-600 text-black border-red-600'
+                      : 'bg-black text-zinc-500 border-zinc-800 hover:border-zinc-500 hover:text-white'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {voice}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Personality Presets */}
         <div className="mb-8">

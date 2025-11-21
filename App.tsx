@@ -10,6 +10,7 @@ const DEFAULT_CONFIG: Config = {
   systemInstruction: PRESET_PERSONALITIES[0].instruction,
   voiceName: 'Kore',
   useSearch: true,
+  service: 'gemini',
 };
 
 const App: React.FC = () => {

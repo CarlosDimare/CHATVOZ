@@ -3,6 +3,7 @@ export interface Config {
   systemInstruction: string;
   voiceName: string;
   useSearch: boolean;
+  service: 'gemini' | 'pollinations';
 }
 
 export interface Personality {
