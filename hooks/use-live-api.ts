@@ -10,7 +10,23 @@ export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<TranscriptItem[]>([]);
+
+  // Initialize messages from localStorage
+  const [messages, setMessages] = useState<TranscriptItem[]>(() => {
+    const saved = localStorage.getItem('chat_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    localStorage.setItem('chat_history', JSON.stringify(messages));
+  }, [messages]);
+
+  // Ref to access latest messages inside callbacks/connect
+  const messagesRef = useRef<TranscriptItem[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Audio Context Refs
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -68,7 +84,8 @@ export function useLiveApi(config: Config) {
     try {
       setConnectionState('connecting');
       setError(null);
-      setMessages([]);
+      // Do NOT clear messages here to maintain history
+      // setMessages([]); 
 
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       inputContextRef.current = new AudioContextClass({ sampleRate: INPUT_SAMPLE_RATE });
@@ -79,11 +96,15 @@ export function useLiveApi(config: Config) {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const tools = currentConfigRef.current.useSearch ? [{ googleSearch: {} }] : [];
 
+      // Inject History Context
+      const historyContext = messagesRef.current.slice(-20).map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.text}`).join('\n');
+      const fullSystemInstruction = `${currentConfigRef.current.systemInstruction}\n\n[CONTEXTO PREVIO (IMPORTANTE: Usa esto para mantener la coherencia de la conversación)]\n${historyContext}`;
+
       sessionPromiseRef.current = ai.live.connect({
         model: currentConfigRef.current.model,
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: currentConfigRef.current.systemInstruction,
+          systemInstruction: fullSystemInstruction,
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: currentConfigRef.current.voiceName } },
           },

@@ -12,10 +12,12 @@ const DEFAULT_CONFIG: Config = {
   useSearch: true,
 };
 
+type Mode = 'voice' | 'text';
+
 const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>('voice');
   const [textInput, setTextInput] = useState('');
 
   const { connect, disconnect, connectionState, volume, error, messages, sendText } = useLiveApi(config);
@@ -49,30 +51,27 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-zinc-900/10 rounded-full blur-[150px]"></div>
       </div>
 
-      {/* Desktop Sidebar / Mobile Modal for Transcript */}
-      <div className={`fixed lg:static inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 w-full lg:w-96 shrink-0 border-r border-zinc-900 bg-black`}>
-        <Transcript
-          messages={messages}
-          isOpen={true}
-          onClose={() => setIsTranscriptOpen(false)}
-        />
-      </div>
-
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full relative z-10">
 
         {/* Top Navigation */}
         <nav className="p-4 lg:p-6 flex justify-between items-center border-b border-zinc-900 lg:border-none">
-          {/* Mobile Transcript Toggle */}
-          <button
-            onClick={() => setIsTranscriptOpen(true)}
-            className="lg:hidden p-3 text-zinc-500 hover:text-red-500 hover:bg-zinc-900 transition-all border border-zinc-800"
-          >
-            <i className="ph ph-chat-text text-2xl"></i>
-          </button>
-
-          <div className="flex items-center gap-2 mx-auto lg:mx-0 opacity-0 lg:opacity-100 pointer-events-none lg:pointer-events-auto">
-            {/* Hidden Title for layout balance */}
+          {/* Mode Toggle */}
+          <div className="flex bg-zinc-900/50 p-1 border border-zinc-800">
+            <button
+              onClick={() => setMode('voice')}
+              className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'voice' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+            >
+              Voz
+            </button>
+            <button
+              onClick={() => setMode('text')}
+              className={`px-4 py-1 text-xs font-bold uppercase transition-colors ${mode === 'text' ? 'bg-red-600 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+            >
+              Texto
+            </button>
           </div>
 
           <button
@@ -111,66 +110,93 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* Visualizer */}
-          <div className="relative w-full flex items-center justify-center mb-12 lg:mb-16">
-            <div className={`absolute inset-0 bg-gradient-to-b from-red-900/10 to-transparent rounded-full blur-3xl transition-opacity duration-1000 ${isConnected ? 'opacity-100' : 'opacity-0'}`} />
-            <Visualizer volume={volume} isActive={isConnected} />
-          </div>
+          {/* VOICE MODE UI */}
+          {mode === 'voice' && (
+            <>
+              <div className="relative w-full flex items-center justify-center mb-12 lg:mb-16">
+                <div className={`absolute inset-0 bg-gradient-to-b from-red-900/10 to-transparent rounded-full blur-3xl transition-opacity duration-1000 ${isConnected ? 'opacity-100' : 'opacity-0'}`} />
+                <Visualizer volume={volume} isActive={isConnected} />
+              </div>
 
-          {/* Controls */}
-          <div className="flex flex-col items-center gap-8 w-full">
-            <div className="flex flex-col items-center gap-4">
-              <button
-                onClick={toggleConnection}
-                className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 border-2 ${isConnected
-                  ? 'bg-red-600 border-red-600 hover:bg-red-700 shadow-[0_0_40px_rgba(220,38,38,0.3)]'
-                  : 'bg-black border-zinc-700 hover:border-white shadow-[0_0_20px_rgba(255,255,255,0.05)]'
-                  }`}
-                style={{ borderRadius: '0' }} // Square button for brutalist/minimalist look
-              >
-                {/* Ripple Effect when connecting */}
-                {isConnecting && (
-                  <span className="absolute inset-0 border border-white/30 animate-ping"></span>
-                )}
-
-                <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-white'}`}></i>
-              </button>
-
-              <p className="text-zinc-600 text-xs font-bold tracking-[0.2em] uppercase">
-                {isConnected ? "FINALIZAR TRANSMISIÓN" : "INICIAR TRANSMISIÓN"}
-              </p>
-            </div>
-
-            {/* Text Input */}
-            <div className="w-full max-w-md mt-4">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (textInput.trim() && isConnected) {
-                    sendText(textInput);
-                    setTextInput('');
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <input
-                  type="text"
-                  value={textInput}
-                  onChange={(e) => setTextInput(e.target.value)}
-                  placeholder={isConnected ? "Escribe un mensaje..." : "Conecta para chatear..."}
-                  disabled={!isConnected}
-                  className="flex-1 bg-zinc-900/50 border border-zinc-800 p-3 text-white text-sm outline-none focus:border-red-600 placeholder-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                />
+              <div className="flex flex-col items-center gap-8">
                 <button
-                  type="submit"
-                  disabled={!isConnected || !textInput.trim()}
-                  className="bg-zinc-900 hover:bg-red-600 text-white px-4 transition-colors disabled:opacity-50 disabled:hover:bg-zinc-900 border border-zinc-800"
+                  onClick={toggleConnection}
+                  className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 rounded-full border-2 ${isConnected
+                    ? 'bg-red-600 border-red-600 hover:bg-red-700 shadow-[0_0_40px_rgba(220,38,38,0.3)]'
+                    : 'bg-black border-red-600 hover:bg-red-900/20 shadow-[0_0_20px_rgba(220,38,38,0.1)]'
+                    }`}
                 >
-                  <i className="ph ph-paper-plane-right"></i>
+                  {/* Ripple Effect when connecting */}
+                  {isConnecting && (
+                    <span className="absolute inset-0 border border-red-600/30 rounded-full animate-ping"></span>
+                  )}
+
+                  <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-red-500'}`}></i>
                 </button>
-              </form>
+
+                <p className="text-zinc-600 text-xs font-bold tracking-[0.2em] uppercase">
+                  {isConnected ? "FINALIZAR" : "INICIAR"}
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* TEXT MODE UI */}
+          {mode === 'text' && (
+            <div className="w-full flex flex-col h-[60vh]">
+              <div className="flex-1 overflow-hidden border border-zinc-800 bg-black/50 mb-4 relative">
+                <Transcript messages={messages} isOpen={true} onClose={() => { }} />
+              </div>
+
+              <div className="flex gap-2 items-center">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && textInput.trim() && isConnected) {
+                        sendText(textInput);
+                        setTextInput('');
+                      }
+                    }}
+                    placeholder={isConnected ? "Escribe un mensaje..." : "Conecta para chatear..."}
+                    disabled={!isConnected}
+                    className="w-full bg-zinc-900/50 border border-zinc-800 p-4 text-white text-sm outline-none focus:border-red-600 placeholder-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Unified Connect/Send Button for Text Mode */}
+                {isConnected ? (
+                  <button
+                    onClick={() => {
+                      if (textInput.trim()) {
+                        sendText(textInput);
+                        setTextInput('');
+                      }
+                    }}
+                    disabled={!textInput.trim()}
+                    className="w-14 h-14 flex items-center justify-center bg-zinc-900 hover:bg-red-600 text-white transition-colors border border-zinc-800 disabled:opacity-50 disabled:hover:bg-zinc-900 rounded-full"
+                  >
+                    <i className="ph ph-paper-plane-right text-xl"></i>
+                  </button>
+                ) : (
+                  <button
+                    onClick={toggleConnection}
+                    className="w-14 h-14 flex items-center justify-center bg-black border-2 border-red-600 hover:bg-red-900/20 text-red-500 transition-colors rounded-full"
+                  >
+                    <i className="ph ph-plugs text-xl"></i>
+                  </button>
+                )}
+              </div>
+              {!isConnected && (
+                <p className="text-center text-zinc-600 text-[10px] mt-2 uppercase tracking-widest">
+                  * Pulsa el botón rojo para conectar
+                </p>
+              )}
             </div>
-          </div>
+          )}
+
         </main>
       </div>
 
