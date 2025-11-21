@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveApi } from './hooks/use-live-api';
 import Visualizer from './components/Visualizer';
 import SettingsPanel from './components/SettingsPanel';
@@ -29,16 +29,27 @@ const App: React.FC = () => {
     }
   };
 
+  // Fix for mobile viewport height
+  useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    return () => window.removeEventListener('resize', setVh);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-black flex relative overflow-hidden font-sans selection:bg-red-900 selection:text-white">
+    <div className="h-screen w-full bg-black flex relative overflow-hidden font-mono selection:bg-red-900 selection:text-white" style={{ height: 'calc(var(--vh, 1vh) * 100)' }}>
       {/* Background Ambient Effects - Minimalist Red Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-red-900/10 rounded-full blur-[150px]"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-zinc-900/20 rounded-full blur-[150px]"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-red-900/5 rounded-full blur-[150px]"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] bg-zinc-900/10 rounded-full blur-[150px]"></div>
       </div>
 
       {/* Desktop Sidebar / Mobile Modal for Transcript */}
-      <div className={`fixed lg:static inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 lg:w-80 xl:w-96 shrink-0 border-r border-zinc-900 bg-black`}>
+      <div className={`fixed lg:static inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 w-full lg:w-96 shrink-0 border-r border-zinc-900 bg-black`}>
         <Transcript
           messages={messages}
           isOpen={true}
@@ -47,14 +58,14 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen relative z-10">
+      <div className="flex-1 flex flex-col h-full relative z-10">
 
         {/* Top Navigation */}
-        <nav className="p-6 flex justify-between items-center">
+        <nav className="p-4 lg:p-6 flex justify-between items-center border-b border-zinc-900 lg:border-none">
           {/* Mobile Transcript Toggle */}
           <button
             onClick={() => setIsTranscriptOpen(true)}
-            className="lg:hidden p-3 text-zinc-500 hover:text-white hover:bg-zinc-900 transition-all"
+            className="lg:hidden p-3 text-zinc-500 hover:text-red-500 hover:bg-zinc-900 transition-all border border-zinc-800"
           >
             <i className="ph ph-chat-text text-2xl"></i>
           </button>
@@ -65,7 +76,7 @@ const App: React.FC = () => {
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-3 text-zinc-500 hover:text-white hover:bg-zinc-900 transition-all"
+            className="p-3 text-zinc-500 hover:text-red-500 hover:bg-zinc-900 transition-all border border-zinc-800"
           >
             <i className="ph ph-gear text-2xl"></i>
           </button>
@@ -74,13 +85,13 @@ const App: React.FC = () => {
         <main className="flex-1 flex flex-col items-center justify-center w-full max-w-3xl mx-auto px-6 pb-12">
 
           {/* Status Indicator */}
-          <div className={`mb-12 px-6 py-2 text-xs font-bold tracking-[0.2em] uppercase transition-colors border ${isConnected ? 'bg-red-900/10 text-red-500 border-red-900/30' :
+          <div className={`mb-8 lg:mb-12 px-6 py-2 text-xs font-bold tracking-[0.2em] uppercase transition-colors border ${isConnected ? 'bg-red-900/10 text-red-500 border-red-900/30' :
               isConnecting ? 'bg-zinc-900 text-zinc-400 border-zinc-800' :
                 error ? 'bg-red-900/20 text-red-500 border-red-900' :
                   'bg-black text-zinc-600 border-zinc-900'
             }`}>
             <div className="flex items-center gap-3">
-              <div className={`w-1.5 h-1.5 ${isConnected ? 'bg-red-600 animate-pulse' :
+              <div className={`w-2 h-2 ${isConnected ? 'bg-red-600 animate-pulse' :
                   isConnecting ? 'bg-zinc-400 animate-bounce' :
                     error ? 'bg-red-600' : 'bg-zinc-700'
                 }`} />
@@ -100,7 +111,7 @@ const App: React.FC = () => {
           )}
 
           {/* Visualizer */}
-          <div className="relative w-full flex items-center justify-center mb-16">
+          <div className="relative w-full flex items-center justify-center mb-12 lg:mb-16">
             <div className={`absolute inset-0 bg-gradient-to-b from-red-900/10 to-transparent rounded-full blur-3xl transition-opacity duration-1000 ${isConnected ? 'opacity-100' : 'opacity-0'}`} />
             <Visualizer volume={volume} isActive={isConnected} />
           </div>
@@ -109,9 +120,9 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center gap-8">
             <button
               onClick={toggleConnection}
-              className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 ${isConnected
-                  ? 'bg-red-600 hover:bg-red-700 shadow-[0_0_40px_rgba(220,38,38,0.3)]'
-                  : 'bg-white hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.1)]'
+              className={`relative group w-24 h-24 flex items-center justify-center transition-all duration-500 border-2 ${isConnected
+                  ? 'bg-red-600 border-red-600 hover:bg-red-700 shadow-[0_0_40px_rgba(220,38,38,0.3)]'
+                  : 'bg-black border-zinc-700 hover:border-white shadow-[0_0_20px_rgba(255,255,255,0.05)]'
                 }`}
               style={{ borderRadius: '0' }} // Square button for brutalist/minimalist look
             >
@@ -120,7 +131,7 @@ const App: React.FC = () => {
                 <span className="absolute inset-0 border border-white/30 animate-ping"></span>
               )}
 
-              <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-black'}`}></i>
+              <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-black' : 'text-white'}`}></i>
             </button>
 
             <p className="text-zinc-600 text-xs font-bold tracking-[0.2em] uppercase">
