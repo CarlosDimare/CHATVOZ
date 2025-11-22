@@ -98,10 +98,6 @@ export function useLiveApi(config: Config, mode: 'voice' | 'text') {
       const fullSystemInstruction = `${currentConfigRef.current.systemInstruction}\n\n[CONTEXTO PREVIO (IMPORTANTE: Usa esto para mantener la coherencia de la conversación)]\n${historyContext}`;
 
       // Determine modalities based on mode
-      // Note: Even in text mode, we might receive audio if we don't explicitly disable it, 
-      // but we will choose not to play it.
-      // Ideally we would ask for TEXT only, but the Live API is primarily audio-centric.
-      // We will stick to AUDIO modality for consistency but ignore it in client.
       const responseModalities = [Modality.AUDIO];
 
       sessionPromiseRef.current = ai.live.connect({
@@ -163,7 +159,6 @@ export function useLiveApi(config: Config, mode: 'voice' | 'text') {
 
             // Only play audio if in VOICE mode
             if (base64Audio && currentModeRef.current === 'voice') {
-              // Ensure output context exists (it might not if we started in text mode and switched, though we should disconnect on switch)
               if (!outputContextRef.current) {
                 const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
                 outputContextRef.current = new AudioContextClass({ sampleRate: OUTPUT_SAMPLE_RATE });
@@ -281,7 +276,24 @@ export function useLiveApi(config: Config, mode: 'voice' | 'text') {
   const sendText = async (text: string) => {
     if (sessionPromiseRef.current) {
       const session = await sessionPromiseRef.current;
-      session.send({ parts: [{ text }] });
+
+      // Debugging session object to find correct send method
+      console.log('DEBUG: Session object keys:', Object.keys(session));
+      console.log('DEBUG: Session prototype:', Object.getPrototypeOf(session));
+
+      if (typeof session.send === 'function') {
+        session.send({ parts: [{ text }] });
+      } else if (typeof session.sendClientContent === 'function') {
+        console.log('Using sendClientContent');
+        session.sendClientContent({ turns: [{ parts: [{ text }] }] });
+      } else {
+        console.error('Session does not have send method. Available methods:', session);
+        // Fallback to sendRealtimeInput if possible (unlikely for text but worth checking)
+        if (typeof session.sendRealtimeInput === 'function') {
+          console.warn('Attempting to use sendRealtimeInput for text (experimental)');
+          // This is likely wrong but a desperate fallback
+        }
+      }
 
       // Optimistically add user message
       setMessages(prev => [...prev, {
