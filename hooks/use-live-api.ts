@@ -6,11 +6,10 @@ import { Config, ConnectionState, TranscriptItem } from '../types';
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-export function useLiveApi(config: Config) {
+export function useLiveApi(config: Config, updateMessages: (updater: (prev: TranscriptItem[]) => TranscriptItem[]) => void) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<TranscriptItem[]>([]);
 
   // Audio Context Refs
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -72,7 +71,7 @@ export function useLiveApi(config: Config) {
     try {
       setConnectionState('connecting');
       setError(null);
-      setMessages([]); // Clear history on new connection
+      updateMessages(() => []); // Clear history on new connection
 
       // 1. Setup Audio Contexts
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -179,14 +178,14 @@ export function useLiveApi(config: Config) {
             const groundingMetadata = (message.serverContent as any)?.groundingMetadata;
 
             if (inputTx) {
-                setMessages(prev => {
+                updateMessages(prev => {
                     const last = prev[prev.length - 1];
                     if (last?.role === 'user') {
                         return [...prev.slice(0, -1), { ...last, text: last.text + inputTx }];
                     } else {
-                        return [...prev, { 
-                            id: Date.now().toString(), 
-                            role: 'user', 
+                        return [...prev, {
+                            id: Date.now().toString(),
+                            role: 'user',
                             text: inputTx,
                             timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
                         }];
@@ -195,7 +194,7 @@ export function useLiveApi(config: Config) {
             }
 
             if (outputTx || groundingMetadata) {
-                setMessages(prev => {
+                updateMessages(prev => {
                     const last = prev[prev.length - 1];
                     let sources = last?.sources || [];
 
@@ -210,17 +209,17 @@ export function useLiveApi(config: Config) {
                     }
 
                     if (last?.role === 'model') {
-                        return [...prev.slice(0, -1), { 
-                            ...last, 
+                        return [...prev.slice(0, -1), {
+                            ...last,
                             text: last.text + (outputTx || ''),
                             sources: sources.length > 0 ? sources : undefined
                         }];
                     } else {
                         // If we have grounding but no text yet, create the message
                         if (outputTx || sources.length > 0) {
-                            return [...prev, { 
-                                id: Date.now().toString(), 
-                                role: 'model', 
+                            return [...prev, {
+                                id: Date.now().toString(),
+                                role: 'model',
                                 text: outputTx || '',
                                 timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                                 sources: sources.length > 0 ? sources : undefined
@@ -257,7 +256,6 @@ export function useLiveApi(config: Config) {
     disconnect,
     connectionState,
     volume,
-    error,
-    messages
+    error
   };
 }

@@ -3,7 +3,7 @@ import { useLiveApi } from './hooks/use-live-api';
 import Visualizer from './components/Visualizer';
 import SettingsPanel from './components/SettingsPanel';
 import Transcript from './components/Transcript';
-import { Config, PRESET_PERSONALITIES } from './types';
+import { Config, PRESET_PERSONALITIES, Conversation } from './types';
 
 const DEFAULT_CONFIG: Config = {
   model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -16,8 +16,41 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
-  
-  const { connect, disconnect, connectionState, volume, error, messages } = useLiveApi(config);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const saved = localStorage.getItem('conversations');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+
+  const currentConversation = conversations.find(c => c.id === currentConversationId);
+  const messages = currentConversation ? currentConversation.messages : [];
+
+  const updateCurrentConversationMessages = (updater: (prev: any[]) => any[]) => {
+    if (!currentConversationId) return;
+    setConversations(prev => prev.map(conv =>
+      conv.id === currentConversationId
+        ? { ...conv, messages: updater(conv.messages) }
+        : conv
+    ));
+  };
+
+  const createNewConversation = () => {
+    const id = Date.now().toString();
+    const newConv: Conversation = {
+      id,
+      title: `Conversación ${conversations.length + 1}`,
+      messages: [],
+      createdAt: new Date().toISOString(),
+    };
+    setConversations(prev => [...prev, newConv]);
+    setCurrentConversationId(id);
+  };
+
+  React.useEffect(() => {
+    localStorage.setItem('conversations', JSON.stringify(conversations));
+  }, [conversations]);
+
+  const { connect, disconnect, connectionState, volume, error } = useLiveApi(config, updateCurrentConversationMessages);
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
@@ -25,6 +58,9 @@ const App: React.FC = () => {
     if (isConnected || isConnecting) {
       disconnect();
     } else {
+      if (!currentConversationId) {
+        createNewConversation();
+      }
       connect();
     }
   };
@@ -39,10 +75,13 @@ const App: React.FC = () => {
 
       {/* Desktop Sidebar / Mobile Modal for Transcript */}
       <div className={`fixed lg:static inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 lg:w-80 xl:w-96 shrink-0`}>
-        <Transcript 
-            messages={messages} 
+        <Transcript
+            conversations={conversations}
+            currentId={currentConversationId}
+            onSelectConversation={setCurrentConversationId}
+            onNewConversation={createNewConversation}
             isOpen={true} // Always render content, visibility handled by parent container on mobile
-            onClose={() => setIsTranscriptOpen(false)} 
+            onClose={() => setIsTranscriptOpen(false)}
         />
       </div>
 
@@ -63,7 +102,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/30">
                     <i className="ph ph-sparkle text-white text-lg"></i>
                 </div>
-                <h1 className="text-xl font-bold text-slate-100 tracking-tight">Gemini Live</h1>
+                <h1 className="text-xl font-bold text-slate-100 tracking-tight">Vot</h1>
             </div>
 
             <button 

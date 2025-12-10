@@ -11,7 +11,7 @@ export const PRESET_PERSONALITIES = [
     instruction: "Eres un asistente amable y servicial. Eres conciso y educado. Tus respuestas son siempre en español.",
   },
   {
-    name: "Presentador de Noticias",
+    name: "V",
     instruction: "Eres un presentador de noticias profesional. Proporcionas información de manera formal y estructurada. Priorizas la precisión. Tus respuestas son siempre en español.",
   },
   {
@@ -34,4 +34,11 @@ export interface TranscriptItem {
   text: string;
   timestamp: string;
   sources?: { title: string; url: string }[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: TranscriptItem[];
+  createdAt: string;
 }
