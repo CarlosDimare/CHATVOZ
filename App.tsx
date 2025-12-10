@@ -5,6 +5,8 @@ import SettingsPanel from './components/SettingsPanel';
 import Transcript from './components/Transcript';
 import { Config, PRESET_PERSONALITIES, Conversation } from './types';
 
+type Mode = 'voice' | 'text';
+
 const DEFAULT_CONFIG: Config = {
   model: 'gemini-2.5-flash-native-audio-preview-09-2025',
   systemInstruction: PRESET_PERSONALITIES[0].instruction,
@@ -16,6 +18,8 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>('voice');
+  const [textInput, setTextInput] = useState('');
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     const saved = localStorage.getItem('conversations');
     return saved ? JSON.parse(saved) : [];
@@ -50,7 +54,7 @@ const App: React.FC = () => {
     localStorage.setItem('conversations', JSON.stringify(conversations));
   }, [conversations]);
 
-  const { connect, disconnect, connectionState, volume, error } = useLiveApi(config, updateCurrentConversationMessages);
+  const { connect, disconnect, connectionState, volume, error, sendText } = useLiveApi(config, updateCurrentConversationMessages);
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
@@ -105,7 +109,14 @@ const App: React.FC = () => {
                 <h1 className="text-xl font-bold text-slate-100 tracking-tight">Vot</h1>
             </div>
 
-            <button 
+            <button
+            onClick={() => setMode(mode === 'voice' ? 'text' : 'voice')}
+            className="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-all"
+            >
+            <i className={`ph ${mode === 'voice' ? 'ph-chat-text' : 'ph-microphone'} text-2xl`}></i>
+            </button>
+
+            <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-all"
             >
@@ -164,13 +175,31 @@ const App: React.FC = () => {
                 <span className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping"></span>
                 )}
                 
-                <i className={`ph ${isConnected ? 'ph-phone-slash' : 'ph-microphone'} text-3xl ${isConnected ? 'text-white' : 'text-slate-900'}`}></i>
+                <i className={`ph ${isConnected ? 'ph-phone-slash' : (mode === 'voice' ? 'ph-microphone' : 'ph-chat-text')} text-3xl ${isConnected ? 'text-white' : 'text-slate-900'}`}></i>
             </button>
-            
+
             <p className="text-slate-500 text-sm font-medium">
-                {isConnected ? "Toca para desconectar" : "Toca para conversar"}
+                {isConnected ? "Toca para desconectar" : (mode === 'voice' ? "Toca para conversar" : "Escribe para conversar")}
             </p>
             </div>
+
+            {mode === 'text' && (
+            <div className="flex gap-2 mt-6 max-w-md mx-auto">
+                <input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendText(textInput) && setTextInput('')}
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-lg p-3 text-slate-200 placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="Escribe tu mensaje..."
+                />
+                <button
+                onClick={() => { sendText(textInput); setTextInput(''); }}
+                className="bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg font-medium transition-colors"
+                >
+                Enviar
+                </button>
+            </div>
+            )}
         </main>
       </div>
 

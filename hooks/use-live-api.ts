@@ -63,7 +63,7 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
   }, []);
 
   const connect = useCallback(async () => {
-    if (!process.env.API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       setError("Clave API no encontrada en las variables de entorno.");
       return;
     }
@@ -251,11 +251,20 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
     }
   }, [config, disconnect]);
 
+  const sendText = useCallback(async (text: string) => {
+    updateMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }]);
+    // Simulate response
+    setTimeout(() => {
+      updateMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Respuesta simulada: ' + text, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }]);
+    }, 1000);
+  }, [updateMessages]);
+
   return {
     connect,
     disconnect,
     connectionState,
     volume,
-    error
+    error,
+    sendText
   };
 }

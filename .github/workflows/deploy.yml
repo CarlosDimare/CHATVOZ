@@ -20,10 +20,12 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - run: cp docs/index.html docs/404.html
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: ./dist
 
   deploy:
     runs-on: ubuntu-latest
