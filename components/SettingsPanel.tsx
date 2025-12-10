@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Config, PRESET_PERSONALITIES, VOICE_NAMES, Personality } from '../types';
+import React from 'react';
+import { Config, VOICE_NAMES } from '../types';
 
 interface SettingsPanelProps {
   config: Config;
@@ -10,53 +10,7 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen, onClose, disabled }) => {
-  const [customPersonalities, setCustomPersonalities] = useState<Personality[]>([]);
-  const [newCharacterName, setNewCharacterName] = useState('');
-
-  useEffect(() => {
-    const saved = localStorage.getItem('custom_personalities');
-    if (saved) {
-      try {
-        setCustomPersonalities(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load custom personalities", e);
-      }
-    }
-  }, []);
-
-  const saveCustomPersonalities = (personalities: Personality[]) => {
-    setCustomPersonalities(personalities);
-    localStorage.setItem('custom_personalities', JSON.stringify(personalities));
-  };
-
-  const handleAddCharacter = () => {
-    if (!newCharacterName.trim()) return;
-
-    const newPersonality: Personality = {
-      name: newCharacterName,
-      instruction: `Eres ${newCharacterName}. Actúa, piensa y habla exactamente como este personaje histórico. Adopta su tono, vocabulario y visión del mundo. Tus respuestas son siempre en español.`
-    };
-
-    const updated = [...customPersonalities, newPersonality];
-    saveCustomPersonalities(updated);
-    setNewCharacterName('');
-
-    // Auto-select the new character
-    setConfig({ ...config, systemInstruction: newPersonality.instruction });
-  };
-
-  const handleDeleteCharacter = (index: number) => {
-    const updated = customPersonalities.filter((_, i) => i !== index);
-    saveCustomPersonalities(updated);
-    // If the deleted character was selected, revert to default
-    if (config.systemInstruction === customPersonalities[index].instruction) {
-      setConfig({ ...config, systemInstruction: PRESET_PERSONALITIES[0].instruction });
-    }
-  };
-
   if (!isOpen) return null;
-
-  const allPersonalities = [...PRESET_PERSONALITIES, ...customPersonalities];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black bg-opacity-90 backdrop-blur-none transition-opacity font-mono">
@@ -114,68 +68,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ config, setConfig, isOpen
           </div>
         </div>
 
-        {/* Personality Presets */}
-        <div className="mb-8">
-          <label className="block text-red-600 text-xs font-bold uppercase tracking-widest mb-3">[ PERSONAJES ]</label>
-
-          {/* Add New Character Input */}
-          <div className="flex gap-0 mb-4 border border-zinc-800">
-            <input
-              type="text"
-              value={newCharacterName}
-              onChange={(e) => setNewCharacterName(e.target.value)}
-              placeholder="NUEVO PERSONAJE..."
-              className="flex-1 bg-black p-3 text-white text-sm outline-none placeholder-zinc-700 uppercase font-bold"
-            />
-            <button
-              onClick={handleAddCharacter}
-              disabled={!newCharacterName.trim()}
-              className="bg-zinc-900 hover:bg-red-600 text-white px-4 transition-colors disabled:opacity-50 disabled:hover:bg-zinc-900 border-l border-zinc-800"
-            >
-              <i className="ph ph-plus"></i>
-            </button>
-          </div>
-
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-            {/* Preset Personalities */}
-            {PRESET_PERSONALITIES.map((p, idx) => (
-              <button
-                key={`preset-${idx}`}
-                onClick={() => setConfig({ ...config, systemInstruction: p.instruction })}
-                disabled={disabled}
-                className={`w-full text-left px-4 py-3 text-sm transition-all border-l-2 ${config.systemInstruction === p.instruction
-                    ? 'bg-zinc-900 border-red-600 text-white'
-                    : 'bg-black border-zinc-800 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className="font-bold uppercase tracking-wider">{p.name}</div>
-              </button>
-            ))}
-
-            {/* Custom Personalities with Delete Button */}
-            {customPersonalities.map((p, idx) => (
-              <div key={`custom-${idx}`} className="flex items-stretch">
-                <button
-                  onClick={() => setConfig({ ...config, systemInstruction: p.instruction })}
-                  disabled={disabled}
-                  className={`flex-1 text-left px-4 py-3 text-sm transition-all border-l-2 ${config.systemInstruction === p.instruction
-                      ? 'bg-zinc-900 border-red-600 text-white'
-                      : 'bg-black border-zinc-800 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
-                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="font-bold uppercase tracking-wider">{p.name}</div>
-                </button>
-                <button
-                  onClick={() => handleDeleteCharacter(idx)}
-                  disabled={disabled}
-                  className="bg-zinc-900 hover:bg-red-900 text-zinc-500 hover:text-white px-3 border-l border-zinc-800 transition-colors"
-                >
-                  <i className="ph ph-trash"></i>
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Custom System Instruction */}
         <div>

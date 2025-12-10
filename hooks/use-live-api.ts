@@ -6,10 +6,11 @@ import { Config, ConnectionState, TranscriptItem } from '../types';
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-export function useLiveApi(config: Config, updateMessages: (updater: (prev: TranscriptItem[]) => TranscriptItem[]) => void) {
+export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<TranscriptItem[]>([]);
 
   // Audio Context Refs
   const inputContextRef = useRef<AudioContext | null>(null);
@@ -71,7 +72,7 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
     try {
       setConnectionState('connecting');
       setError(null);
-      updateMessages(() => []); // Clear history on new connection
+      setMessages([]); // Clear history on new connection
 
       // 1. Setup Audio Contexts
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -178,7 +179,7 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
             const groundingMetadata = (message.serverContent as any)?.groundingMetadata;
 
             if (inputTx) {
-                updateMessages(prev => {
+                setMessages(prev => {
                     const last = prev[prev.length - 1];
                     if (last?.role === 'user') {
                         return [...prev.slice(0, -1), { ...last, text: last.text + inputTx }];
@@ -194,7 +195,7 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
             }
 
             if (outputTx || groundingMetadata) {
-                updateMessages(prev => {
+                setMessages(prev => {
                     const last = prev[prev.length - 1];
                     let sources = last?.sources || [];
 
@@ -251,20 +252,12 @@ export function useLiveApi(config: Config, updateMessages: (updater: (prev: Tran
     }
   }, [config, disconnect]);
 
-  const sendText = useCallback(async (text: string) => {
-    updateMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', text, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }]);
-    // Simulate response
-    setTimeout(() => {
-      updateMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Respuesta simulada: ' + text, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }]);
-    }, 1000);
-  }, [updateMessages]);
-
   return {
     connect,
     disconnect,
     connectionState,
     volume,
     error,
-    sendText
+    messages
   };
 }
