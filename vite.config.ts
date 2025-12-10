@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/CHATVOZ/',
     build: {
-      outDir: 'docs'
+      outDir: 'dist'
     },
     server: {
       port: 3000,
