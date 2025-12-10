@@ -10,7 +10,15 @@ export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [volume, setVolume] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<TranscriptItem[]>([]);
+  const [messages, setMessages] = useState<TranscriptItem[]>(() => {
+    const saved = localStorage.getItem('chat_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('chat_history', JSON.stringify(messages));
+  }, [messages]);
 
   // Audio Context Refs
   const inputContextRef = useRef<AudioContext | null>(null);

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useLiveApi } from './hooks/use-live-api';
 import Visualizer from './components/Visualizer';
 import SettingsPanel from './components/SettingsPanel';
-import Transcript from './components/Transcript';
 import { Config, PRESET_PERSONALITIES } from './types';
 
 const DEFAULT_CONFIG: Config = {
@@ -15,9 +14,8 @@ const DEFAULT_CONFIG: Config = {
 const App: React.FC = () => {
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
 
-  const { connect, disconnect, connectionState, volume, error, messages } = useLiveApi(config);
+  const { connect, disconnect, connectionState, volume, error } = useLiveApi(config);
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
@@ -37,30 +35,12 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* Desktop Sidebar / Mobile Modal for Transcript */}
-      <div className={`fixed lg:static inset-y-0 left-0 z-30 transform ${isTranscriptOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 transition-transform duration-300 lg:w-80 xl:w-96 shrink-0`}>
-        <Transcript
-            messages={messages}
-            isOpen={true} // Always render content, visibility handled by parent container on mobile
-            onClose={() => setIsTranscriptOpen(false)}
-        />
-      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen relative z-10">
         
         {/* Top Navigation */}
-        <nav className="p-6 flex justify-between items-center">
-            {/* Mobile Transcript Toggle */}
-            <button 
-            onClick={() => setIsTranscriptOpen(true)}
-            className="lg:hidden p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-all"
-            >
-            <i className="ph ph-chat-text text-2xl"></i>
-            </button>
-
-            <div></div>
-
+        <nav className="p-6 flex justify-end items-center">
             <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-all"
