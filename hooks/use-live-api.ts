@@ -61,6 +61,18 @@ function loadSavedMessages(): TranscriptItem[] {
   }
 }
 
+function loadSavedMessages(): TranscriptItem[] {
+  try {
+    const saved = localStorage.getItem('chat_history');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('chat_history');
+    return [];
+  }
+}
+
 export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [phase, setPhase] = useState('idle');
