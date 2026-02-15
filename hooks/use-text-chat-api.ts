@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { Config, Conversation, TranscriptItem } from '../types';
 
 const STORAGE_KEY = 'chat_history_v2';
+const DEFAULT_TEXT_MODEL = 'gemini-2.5-flash';
 
 function safeReadConversations(): Conversation[] {
   try {
@@ -18,6 +19,15 @@ function safeReadConversations(): Conversation[] {
 
 function titleFromMessage(text: string) {
   return text.trim().slice(0, 48) || 'Nuevo chat';
+}
+
+function isModelNotFoundError(err: unknown) {
+  if (!(err instanceof Error)) return false;
+  return err.message.includes('NOT_FOUND') || err.message.includes('not found for API version');
+}
+
+function resolveTextModel(model: string) {
+  return model.includes('native-audio') ? DEFAULT_TEXT_MODEL : model;
 }
 
 export function useTextChatApi(config: Config) {
@@ -72,6 +82,45 @@ export function useTextChatApi(config: Config) {
     }));
   }, []);
 
+  const streamModelResponse = useCallback(async (
+    ai: GoogleGenAI,
+    model: string,
+    text: string,
+    history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+    conversationId: string,
+  ) => {
+    const stream = await ai.models.generateContentStream({
+      model,
+      config: {
+        systemInstruction: config.systemInstruction,
+      },
+      contents: [
+        ...history,
+        { role: 'user', parts: [{ text }] },
+      ],
+    });
+
+    for await (const chunk of stream) {
+      const token = chunk.text || '';
+      if (!token) continue;
+      updateConversationMessages(conversationId, messages => {
+        const copy = [...messages];
+        const last = copy[copy.length - 1];
+        if (last?.role === 'model') {
+          copy[copy.length - 1] = { ...last, text: `${last.text}${token}`, status: 'streaming' };
+        }
+        return copy;
+      });
+    }
+
+    updateConversationMessages(conversationId, messages => {
+      const copy = [...messages];
+      const last = copy[copy.length - 1];
+      if (last?.role === 'model') copy[copy.length - 1] = { ...last, status: 'complete' };
+      return copy;
+    });
+  }, [config.systemInstruction, updateConversationMessages]);
+
   const sendMessage = useCallback(async (text: string) => {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error('Falta GEMINI_API_KEY.');
@@ -117,36 +166,16 @@ export function useTextChatApi(config: Config) {
         parts: [{ text: msg.text }],
       }));
 
-      const stream = await ai.models.generateContentStream({
-        model: config.model,
-        config: {
-          systemInstruction: config.systemInstruction,
-        },
-        contents: [
-          ...history,
-          { role: 'user', parts: [{ text }] },
-        ],
-      });
+      const preferredModel = resolveTextModel(config.model);
 
-      for await (const chunk of stream) {
-        const token = chunk.text || '';
-        if (!token) continue;
-        updateConversationMessages(conversationId, messages => {
-          const copy = [...messages];
-          const last = copy[copy.length - 1];
-          if (last?.role === 'model') {
-            copy[copy.length - 1] = { ...last, text: `${last.text}${token}`, status: 'streaming' };
-          }
-          return copy;
-        });
+      try {
+        await streamModelResponse(ai, preferredModel, text, history, conversationId);
+      } catch (err) {
+        if (!isModelNotFoundError(err) || preferredModel === DEFAULT_TEXT_MODEL) {
+          throw err;
+        }
+        await streamModelResponse(ai, DEFAULT_TEXT_MODEL, text, history, conversationId);
       }
-
-      updateConversationMessages(conversationId, messages => {
-        const copy = [...messages];
-        const last = copy[copy.length - 1];
-        if (last?.role === 'model') copy[copy.length - 1] = { ...last, status: 'complete' };
-        return copy;
-      });
     } catch (err) {
       updateConversationMessages(conversationId, messages => {
         const copy = [...messages];
@@ -163,7 +192,7 @@ export function useTextChatApi(config: Config) {
     } finally {
       setIsStreaming(false);
     }
-  }, [activeConversation?.messages, activeConversationId, config.model, config.systemInstruction, updateConversationMessages]);
+  }, [activeConversation?.messages, activeConversationId, config.model, streamModelResponse, updateConversationMessages]);
 
   return {
     conversations,
