@@ -16,12 +16,19 @@ export const VOICE_NAMES = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+export interface SourceItem {
+  title: string;
+  url: string;
+}
+
 export interface TranscriptItem {
   id: string;
   role: 'user' | 'model';
   text: string;
   timestamp: string;
-  sources?: { title: string; url: string }[];
+  sources?: SourceItem[];
+  status?: 'sending' | 'streaming' | 'complete' | 'error';
+  error?: string;
 }
 
 export interface Conversation {
@@ -29,4 +36,18 @@ export interface Conversation {
   title: string;
   messages: TranscriptItem[];
   createdAt: string;
+  updatedAt: string;
+  summary?: string;
+}
+
+export interface LiveMetrics {
+  sessionStarts: number;
+  sessionErrors: number;
+  reconnects: number;
+  avgInputRms: number;
+  chunksSent: number;
+  chunksDropped: number;
+  firstAudioLatencyMs: number | null;
+  firstTextLatencyMs: number | null;
+  lastRoundTripMs: number | null;
 }
