@@ -76,6 +76,8 @@ const App: React.FC = () => {
         <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-900/20 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-900/20 rounded-full blur-[120px]"></div>
       </div>
+    );
+  }
 
       <div className="flex-1 flex flex-col h-screen relative z-10">
         <nav className="p-6 flex justify-end items-center gap-3">

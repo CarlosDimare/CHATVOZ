@@ -49,6 +49,18 @@ const defaultMetrics: LiveMetrics = {
   lastRoundTripMs: null,
 };
 
+function loadSavedMessages(): TranscriptItem[] {
+  try {
+    const saved = localStorage.getItem('chat_history');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('chat_history');
+    return [];
+  }
+}
+
 export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [phase, setPhase] = useState('idle');
@@ -104,6 +116,7 @@ export function useLiveApi(config: Config) {
       await inputContextRef.current.close();
       inputContextRef.current = null;
     }
+
     if (outputContextRef.current) {
       await outputContextRef.current.close();
       outputContextRef.current = null;
@@ -126,6 +139,7 @@ export function useLiveApi(config: Config) {
     workletRef.current = null;
 
     setConnectionState('disconnected');
+    setPhase('idle');
     setVolume(0);
     sessionPromiseRef.current = null;
   }, []);
