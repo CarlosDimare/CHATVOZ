@@ -27,6 +27,7 @@ Aplicación de voz en tiempo real con Gemini + modo chat de texto estilo GPT.
 
 Este proyecto **solo** se despliega en GitHub Pages (no usamos Vercel).
 El repo incluye workflow automático en `.github/workflows/deploy.yml`.
+Este repo incluye workflow automático en `.github/workflows/deploy.yml`.
 
 ### Requisitos
 
