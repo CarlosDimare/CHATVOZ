@@ -73,6 +73,18 @@ function loadSavedMessages(): TranscriptItem[] {
   }
 }
 
+function loadSavedMessages(): TranscriptItem[] {
+  try {
+    const saved = localStorage.getItem('chat_history');
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('chat_history');
+    return [];
+  }
+}
+
 export function useLiveApi(config: Config) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [phase, setPhase] = useState('idle');
@@ -87,6 +99,8 @@ export function useLiveApi(config: Config) {
 
   const inputContextRef = useRef<AudioContext | null>(null);
   const outputContextRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
   const inputSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
@@ -121,6 +135,13 @@ export function useLiveApi(config: Config) {
   };
 
   const disconnect = useCallback(async () => {
+    setPhase('disconnecting');
+
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current.onaudioprocess = null;
+      processorRef.current = null;
+    }
     clearTimers();
     setPhase('disconnected');
 
@@ -144,6 +165,7 @@ export function useLiveApi(config: Config) {
     });
     audioSourcesRef.current.clear();
 
+    nextStartTimeRef.current = 0;
     pendingChunksRef.current = [];
 
     inputSourceRef.current = null;
@@ -232,6 +254,9 @@ export function useLiveApi(config: Config) {
 
     try {
       setConnectionState('connecting');
+      setPhase('initializing');
+      setError(null);
+      setMessages([]);
       setPhase('initializing-audio');
       setError(null);
       setMessages([]);
@@ -251,12 +276,14 @@ export function useLiveApi(config: Config) {
       inputContextRef.current = new AudioContextClass({ sampleRate: INPUT_SAMPLE_RATE });
       outputContextRef.current = new AudioContextClass({ sampleRate: OUTPUT_SAMPLE_RATE });
 
+      setPhase('requesting-microphone');
       setPhase('requesting-mic');
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const tools = currentConfigRef.current.useSearch ? [{ googleSearch: {} }] : [];
 
+      setPhase('opening-session');
       connectTimeoutRef.current = window.setTimeout(() => {
         setError('Timeout al conectar con Gemini Live. Intenta reconectar.');
         setConnectionState('error');
@@ -280,6 +307,31 @@ export function useLiveApi(config: Config) {
         },
         callbacks: {
           onopen: () => {
+            setConnectionState('connected');
+            setPhase('listening');
+
+            if (!inputContextRef.current || !streamRef.current) return;
+
+            const source = inputContextRef.current.createMediaStreamSource(streamRef.current);
+            const processor = inputContextRef.current.createScriptProcessor(4096, 1, 1);
+
+            processor.onaudioprocess = e => {
+              const inputData = e.inputBuffer.getChannelData(0);
+
+              let sum = 0;
+              for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+              const rms = Math.sqrt(sum / inputData.length);
+              setVolume(Math.min(1, rms * 5));
+
+              const pcmBlob = createPcmBlob(inputData, INPUT_SAMPLE_RATE);
+              sessionPromiseRef.current?.then(session => {
+                session.sendRealtimeInput({ media: pcmBlob });
+              });
+            };
+
+            source.connect(processor);
+            processor.connect(inputContextRef.current.destination);
+            processorRef.current = processor;
             if (connectTimeoutRef.current) {
               window.clearTimeout(connectTimeoutRef.current);
               connectTimeoutRef.current = null;
@@ -297,6 +349,15 @@ export function useLiveApi(config: Config) {
             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
 
             if (base64Audio && outputContextRef.current) {
+              setPhase('responding');
+              const ctx = outputContextRef.current;
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+
+              const audioBuffer = await decodeAudioData(
+                base64ToUint8Array(base64Audio),
+                ctx,
+                OUTPUT_SAMPLE_RATE,
+              );
               if (firstAudioLatencyRef.current === null && userTurnStartedAtRef.current) {
                 const latency = now() - userTurnStartedAtRef.current;
                 firstAudioLatencyRef.current = latency;
@@ -311,6 +372,10 @@ export function useLiveApi(config: Config) {
               const source = ctx.createBufferSource();
               source.buffer = audioBuffer;
               source.connect(ctx.destination);
+
+              source.onended = () => {
+                audioSourcesRef.current.delete(source);
+                setPhase('listening');
               source.onended = () => {
                 audioSourcesRef.current.delete(source);
                 setPhase('connected-idle');
@@ -345,6 +410,10 @@ export function useLiveApi(config: Config) {
             }
 
             if (inputTx) {
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'user') {
+                  return [...prev.slice(0, -1), { ...last, text: last.text + inputTx }];
               setPhase('waiting-model');
               setMessages(prev => {
                 const last = prev[prev.length - 1];
@@ -365,6 +434,11 @@ export function useLiveApi(config: Config) {
               setMessages(prev => {
                 const last = prev[prev.length - 1];
                 let sources = last?.sources || [];
+
+                if (groundingMetadata?.groundingChunks) {
+                  const newSources = groundingMetadata.groundingChunks
+                    .map((chunk: any) => chunk.web ? { title: chunk.web.title || 'Fuente', url: chunk.web.uri } : null)
+                    .filter((s: any) => s);
                 if (groundingMetadata?.groundingChunks) {
                   const newSources = groundingMetadata.groundingChunks
                     .map((chunk: any) => chunk.web ? { title: chunk.web.title || 'Fuente', url: chunk.web.uri } : null)
@@ -375,6 +449,8 @@ export function useLiveApi(config: Config) {
                 if (last?.role === 'model') {
                   return [...prev.slice(0, -1), {
                     ...last,
+                    text: last.text + (outputTx || ''),
+                    sources: sources.length > 0 ? sources : undefined,
                     text: `${last.text}${outputTx || ''}`,
                     sources: sources.length > 0 ? sources : undefined,
                     status: 'streaming',
@@ -398,6 +474,11 @@ export function useLiveApi(config: Config) {
           onclose: () => {
             setConnectionState('disconnected');
             setPhase('closed');
+          },
+          onerror: (err) => {
+            setConnectionState('error');
+            setPhase('error');
+            setError(err instanceof Error ? err.message : 'Error de conexión desconocido');
             setMessages(prev => prev.map(m => m.role === 'model' ? { ...m, status: 'complete' } : m));
           },
           onerror: (err) => {
@@ -413,6 +494,11 @@ export function useLiveApi(config: Config) {
       setConnectionState('error');
       setPhase('setup-error');
       setError(err instanceof Error ? err.message : 'Fallo al configurar la conexión');
+      disconnect();
+    }
+  }, [disconnect]);
+
+  const reconnect = useCallback(async () => {
       setMetrics(prev => ({ ...prev, sessionErrors: prev.sessionErrors + 1 }));
       disconnect();
     }

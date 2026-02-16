@@ -25,6 +25,8 @@ Aplicación de voz en tiempo real con Gemini + modo chat de texto estilo GPT.
 
 ## Deploy en GitHub Pages
 
+Este proyecto **solo** se despliega en GitHub Pages (no usamos Vercel).
+El repo incluye workflow automático en `.github/workflows/deploy.yml`.
 Este repo incluye workflow automático en `.github/workflows/deploy.yml`.
 
 ### Requisitos
@@ -38,6 +40,19 @@ Este repo incluye workflow automático en `.github/workflows/deploy.yml`.
 
 - Se despliega automáticamente en cada push a `main`.
 - También puedes lanzar deploy manual desde **Actions → Build and deploy to GitHub Pages → Run workflow**.
+
+
+### Desplegar la versión estilo GPT (rama `work`)
+
+Si tu versión buena está en `work`, **ya no necesitas mergear a `main` para ver deploy**.
+
+1. Sube la rama `work`:
+   ```bash
+   git push -u origin work
+   ```
+2. Ve a **Actions → Build and deploy to GitHub Pages** y verifica ejecución (se dispara también por push a `work`).
+3. Alternativa manual: **Run workflow** y selecciona rama `work`.
+
 
 La URL final suele ser:
 
